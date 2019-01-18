@@ -65,8 +65,8 @@
 #' @export
 
 captioner <- function(prefix = "Figure", suffix = ":", auto_space = TRUE,
-                      style = NULL, style_prefix = FALSE,
-                      levels = 1, type = NULL, infix = ".", 
+                      style = c("none", "b", "i", "bi"), style_prefix = FALSE,
+                      levels = 1, type = rep("n", levels), infix = ".", 
                       before = FALSE, knitr_op = NULL,
                       css_class = NULL)
 {
@@ -82,13 +82,8 @@ captioner <- function(prefix = "Figure", suffix = ":", auto_space = TRUE,
   
   # Set missing/NULL "type" values to numeric
   # Cut off extra values
-  if(is.null(type)){
-    type <- c(rep("n", times = levels))
-  } else if(length(type) < levels){
-    type[(length(type) + 1):levels] <- "n"
-  } else if(length(type) > levels){
-    type <- type[1:levels]
-  }
+  type <- type[seq(levels)]
+  type[is.na(type)] <- "n"
   
   # Give error if wrong types were used
   if(!all(type %in% c("n", "c", "C"))){
@@ -96,16 +91,11 @@ captioner <- function(prefix = "Figure", suffix = ":", auto_space = TRUE,
   }
   
   # Check style value
-  if(!is.null(style)){
-    if (!style %in% c("b","i","bi")) 
-      stop("Invalid 'style' value used.  Expecting 'b', 'i', or 'bi'.")
-  }
+  style <- if(is.null(style)) "none" else match.arg(style)
   
   # Force the parameter values for use in the return function
-  force(levels)  
-  force(prefix)
-  force(infix)
-  
+  force(list(levels, prefix, infix))  
+
   ## Create the OBJECT list ---
   
   # Create a list to store object names, captions, and numbers
@@ -115,10 +105,8 @@ captioner <- function(prefix = "Figure", suffix = ":", auto_space = TRUE,
   
   # Assign the first caption number
   # Note that extra values of "type" are ignored by looping over "levels"
-  OBJECTS$number[[1]][which(type == "n")] <- 1
-  OBJECTS$number[[1]][which(type == "c")] <- "a"
-  OBJECTS$number[[1]][which(type == "C")] <- "A"
-  
+  OBJECTS$number[[1]] <- list(n = 1, c = "a", C = "A")[type]
+
   ## Formatting --
   
   # Add space if auto_space is TRUE
@@ -128,11 +116,7 @@ captioner <- function(prefix = "Figure", suffix = ":", auto_space = TRUE,
   }
   
   # Display before or after the figure
-  if(before){
-    cap_knitr(where = "before")
-  } else {
-    cap_knitr(where = "after")
-  }
+  cap_knitr(where = if(before) "before" else "after")
   
   # Set knitr options
   KNITR <- knitr_op
@@ -142,10 +126,8 @@ captioner <- function(prefix = "Figure", suffix = ":", auto_space = TRUE,
            num = FALSE)
   {
     ## Error check parameters --
-    if(level > levels){
-      stop("Level too large.")
-    }    
-    
+    if(level > levels) stop("Level too large.")
+
     ## Get the object list from the enclosing environment ---
     objects <- OBJECTS
     
@@ -178,7 +160,7 @@ captioner <- function(prefix = "Figure", suffix = ":", auto_space = TRUE,
           # bump the numbering at an earlier level
           objects$number[[obj_ind]] <- increment(objects$number[[obj_ind - 1]], 
                                                  level)
-        } else{
+        } else {
           # increment the previous number and add as the new number
           objects$number[[obj_ind]] <- increment(objects$number[[obj_ind - 1]], 
                                                  levels)
@@ -188,10 +170,8 @@ captioner <- function(prefix = "Figure", suffix = ":", auto_space = TRUE,
       
       # Generate a warning if the caption is empty (only occurs on the initial
       # creation of the object)
-      if(caption == ""){
-        warning("No caption supplied.")
-      }
-      
+      if(caption == "") warning("No caption supplied.")
+
       # store the object name and caption at the current index
       objects$name[obj_ind]    <- name
       objects$caption[obj_ind] <- caption
@@ -218,53 +198,30 @@ captioner <- function(prefix = "Figure", suffix = ":", auto_space = TRUE,
     obj_num <- paste(objects$number[[obj_ind]], collapse = infix)
     
     # Generate final display version
-    if(display == FALSE)
-    {
-      return(invisible())
-    }
-    else if(display == "full" || display == "f")
-    {
-      # Add style settings if specified
-      if(!is.null(style)){
-        if(style == "i"){
-          tag <- "*"
-        } else if(style == "b"){
-          tag <- "**"
-        } else if(style == "bi"){
-          tag <- "***"
-        }
-        
-        if(style_prefix){
-          # Apply style to prefix only
-          cap_text <- paste0(tag, prefix, obj_num, suffix, tag, caption)
-        } else{
-          # Apply style to entire caption
-          cap_text <- paste0(tag, prefix, obj_num, suffix, caption, tag)
-        }
-      } else {
-        cap_text <- paste0(prefix, obj_num, suffix, caption)
-      }
+    if(display == FALSE) return(invisible())
+
+    if(display == "full" || display == "f") {
+      # Define tag based on style settings
+      tag <- c(none = "", i = "*", b = "**", bi = "***")[style]
+      
+      # Apply style to prefix only or to entire caption depending on style_prefix
+      cap_text <- paste0(
+        tag, prefix, obj_num, suffix, 
+        tag[style_prefix], caption, tag[!style_prefix]
+        )
       
       if(!is.null(css_class)){
-        cap_text <- paste0("<span class=\"", 
-                           css_class, "\">", cap_text, 
-                           "</span>")
+        cap_text <- paste0("<span class=\"", css_class, "\">", cap_text, "</span>")
       }
       
       return(cap_text)
     }
-    else if(display == "cite" || display == "c")
-    {
-      return(paste0(prefix, obj_num))
-    }
-    else if(display == "num"  || display == "n")
-    {
-      return(obj_num)
-    }
-    else
-    {
-      warning("Invalid display mode used.  Caption was still saved.")
-      return(invisible())
-    }
+    
+    if(display == "cite" || display == "c") return(paste0(prefix, obj_num))
+
+    if(display == "num"  || display == "n") return(obj_num)
+    
+    warning("Invalid display mode used.  Caption was still saved.")
+    return(invisible())
   }
 }

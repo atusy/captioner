@@ -5,8 +5,9 @@
 \title{Captioner function}
 \usage{
 captioner(prefix = "Figure", suffix = ":", auto_space = TRUE,
-  style = NULL, style_prefix = FALSE, levels = 1, type = NULL,
-  infix = ".", before = FALSE, knitr_op = NULL, css_class = NULL)
+  style = c("none", "b", "i", "bi"), style_prefix = FALSE,
+  levels = 1, type = rep("n", levels), infix = ".", before = FALSE,
+  knitr_op = NULL, css_class = NULL)
 }
 \arguments{
 \item{prefix}{Character string containing text to go before object number.
@@ -85,4 +86,3 @@ tables <- captioner(prefix = "Table", levels = 2)
 tables("a", "Table of world populations sorted from greatest to least.")
   
 }
-
